@@ -31,7 +31,8 @@ class Project < ActiveRecord::Base
   validates_numericality_of :default_velocity, :greater_than => 0,
                             :only_integer => true
 
-  has_and_belongs_to_many :users, :uniq => true
+  has_and_belongs_to_many :users, -> { uniq }
+
   accepts_nested_attributes_for :users, :reject_if => :all_blank
 
   has_many :stories, :dependent => :destroy do
@@ -47,14 +48,15 @@ class Project < ActiveRecord::Base
       csv.map do |row|
         row_attrs = row.to_hash
         story = create({
-          :state        => row_attrs["Current State"],
+          :state        => row_attrs["Current State"].downcase,
           :title        => row_attrs["Story"],
-          :story_type   => row_attrs["Story Type"],
+          :story_type   => row_attrs["Story Type"].downcase,
           :requested_by => users.detect {|u| u.name == row["Requested By"]},
           :owned_by     => users.detect {|u| u.name == row["Owned By"]},
           :accepted_at  => row_attrs["Accepted at"],
           :estimate     => row_attrs["Estimate"],
-          :labels       => row_attrs["Labels"]
+          :labels       => row_attrs["Labels"],
+          :description  => row_attrs["Description"]
         })
 
         # Generate notes for this story if any are present
@@ -68,6 +70,8 @@ class Project < ActiveRecord::Base
   has_many :changesets, :dependent => :destroy
 
   attr_writer :suppress_notifications
+
+  scope :with_stories_notes, -> { includes(stories: :notes) }
 
   def suppress_notifications
     @suppress_notifications || false
